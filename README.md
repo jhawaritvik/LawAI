@@ -41,11 +41,13 @@ The project is structured as a sequential pipeline. You must run the scripts in 
     *   `SUPABASE_URL`: The URL of your Supabase project. You can find this in your Supabase project settings under "API".
     *   `SUPABASE_KEY`: Your Supabase "anon" key (public key). Also found in your Supabase project settings under "API".
     *   `LAWAI_GEMINI_KEY`: Your API key for Google Gemini, used for generating responses. Obtain it from [Google AI Studio](https://aistudio.google.com/app/apikey).
+    *   `HUGGINGFACE_HUB_TOKEN`: Your Hugging Face Hub token, required for downloading certain models (e.g., embedding models). Obtain it from your [Hugging Face profile settings](https://huggingface.co/settings/tokens).
     ```
     LLAMA_CLOUD_API_KEY="your-llama-cloud-api-key"
     SUPABASE_URL="your-supabase-project-url"
     SUPABASE_KEY="your-supabase-api-key"
     LAWAI_GEMINI_KEY="your-gemini-api-key"
+    HUGGINGFACE_HUB_TOKEN="your-huggingface-hub-token"
     ```
 
 ## How to Run
