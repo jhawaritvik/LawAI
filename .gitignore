@@ -1,0 +1,20 @@
+# Environment variables
+.env
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Output files
+output/
+ragas_results.csv
+
+# VSCode settings
+.vscode/
