@@ -1,6 +1,6 @@
 # Law AI - RAG System for Legal Documents
 
-This project implements a Retrieval-Augmented Generation (RAG) pipeline to answer questions about the Constitution of India. It uses LlamaParse for document parsing, a Hugging Face model for embeddings, Supabase (Postgres with pgvector) for vector storage, and Google's Gemini for generating answers.
+This project implements a Retrieval-Augmented Generation (RAG) pipeline to answer questions about the Constitution of India. It uses LlamaParse for document parsing, a Hugging Face model for embeddings, Supabase (Postgres with pgvector) for vector storage, and Groq-hosted Llama models for generating answers.
 
 ## Project Workflow
 
@@ -25,7 +25,7 @@ The project is structured as a sequential pipeline. You must run the scripts in 
     *   This is the main entry point for asking questions.
     *   When you ask a question, the script first embeds your query into a vector.
     *   It then queries the Supabase table to retrieve the most relevant document chunks (the "context").
-    *   Finally, it constructs a prompt containing your question and the retrieved context, sends it to the Gemini Pro model, and prints the generated answer.
+    *   Finally, it constructs a prompt containing your question and the retrieved context, sends it to a Groq Llama model (by default `llama-3.3-70b-versatile`), and prints the generated answer.
 
 ## Setup
 
@@ -40,13 +40,13 @@ The project is structured as a sequential pipeline. You must run the scripts in 
     *   `LLAMA_CLOUD_API_KEY`: Your API key for LlamaParse, used for parsing PDF documents. Obtain it from [Llama Cloud](https://cloud.llamaindex.ai/).
     *   `SUPABASE_URL`: The URL of your Supabase project. You can find this in your Supabase project settings under "API".
     *   `SUPABASE_KEY`: Your Supabase "anon" key (public key). Also found in your Supabase project settings under "API".
-    *   `LAWAI_GEMINI_KEY`: Your API key for Google Gemini, used for generating responses. Obtain it from [Google AI Studio](https://aistudio.google.com/app/apikey).
+    *   `GROQ_API_KEY`: Your API key for Groq, used for generating responses. Obtain it from the [Groq Console](https://console.groq.com/keys).
     *   `HUGGINGFACE_HUB_TOKEN`: Your Hugging Face Hub token, required for downloading certain models (e.g., embedding models). Obtain it from your [Hugging Face profile settings](https://huggingface.co/settings/tokens).
     ```
     LLAMA_CLOUD_API_KEY="your-llama-cloud-api-key"
     SUPABASE_URL="your-supabase-project-url"
     SUPABASE_KEY="your-supabase-api-key"
-    LAWAI_GEMINI_KEY="your-gemini-api-key"
+    GROQ_API_KEY="your-groq-api-key"
     HUGGINGFACE_HUB_TOKEN="your-huggingface-hub-token"
     ```
 

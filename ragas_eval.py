@@ -2,21 +2,14 @@
 
 import os
 import pandas as pd
-import asyncio
+
+from dotenv import load_dotenv
+from datasets import Dataset
+from langchain_openai import ChatOpenAI
 
 from ragas import evaluate
-from ragas.dataset_schema import SingleTurnSample
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_precision,
-    context_recall
-)
-from ragas.llms import llm_factory
-from google import genai
 
-from retrieval import retrieve
-from chat import ask     # your Gemini-powered answer generator
+from chat import ask
 
 
 # -----------------------------
@@ -27,85 +20,64 @@ def load_dataset(path):
     if "query" not in df.columns:
         raise ValueError("CSV must contain a 'query' column.")
     # 'reference' is optional but very useful
-    return df.to_dict(orient="records")
+    return df
 
 
 # -----------------------------
 # Per-sample evaluation logic
 # -----------------------------
-async def process_row(row, evaluator_llm):
-    query = row["query"]
-    reference = row.get("reference", None)
-
-    # ---- Retrieve contexts from Supabase ----
-    retrieved = retrieve(query, top_k=8)
-    contexts = [doc["content"] for doc in retrieved]
-
-    # ---- Generate answer using Gemini ----
-    answer = await asyncio.get_event_loop().run_in_executor(None, ask, query)
-
-    # ---- Create RAGAS Sample ----
-    sample = SingleTurnSample(
-        user_input=query,
-        response=answer,
-        reference=reference,
-        retrieved_contexts=contexts
-    )
-
-    # ---- Evaluate metrics ----
-    metrics_to_eval = [
-        faithfulness,
-        answer_relevancy,
-    ]
-    if sample.reference:
-        metrics_to_eval.append(context_precision)
-        metrics_to_eval.append(context_recall)
-
-    # Create a Ragas Dataset from the single sample
-    from datasets import Dataset
-    ragas_dataset = Dataset.from_dict({
-        "question": [sample.user_input],
-        "answer": [sample.response],
-        "contexts": [sample.retrieved_contexts],
-        "ground_truths": [[sample.reference]] if sample.reference else [[]]
-    })
-
-    result = evaluate(ragas_dataset, metrics=metrics_to_eval, llm=evaluator_llm)
-    result_scores = result.to_pandas().iloc[0].to_dict()
-
-    return {
-        **row,
-        "answer": answer,
-        **result_scores
-    }
-
-
 # -----------------------------
 # Main
 # -----------------------------
 def main():
-    # Load the queries
-    data = load_dataset("queries.csv")
+    # Load .env so Ragas' default LLM can see OPENAI_API_KEY
+    load_dotenv()
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not set in environment or .env file.")
 
-    # Wrap Gemini as evaluation LLM
-    gemini_client = genai.Client(api_key=os.getenv("LAWAI_GEMINI_KEY"))
-    evaluator_llm = llm_factory(
-        "gemini-2.5-flash",
-        client=gemini_client
+    df = load_dataset("queries.csv")
+
+    questions = []
+    answers = []
+    contexts_list = []
+    ground_truths_list = []
+    references_list = []
+
+    for _, row in df.iterrows():
+        query = row["query"]
+        reference = row.get("reference", None) if "reference" in df.columns else None
+
+        qa = ask(query, return_chunks=True)
+        questions.append(query)
+        answers.append(qa["answer"])
+        contexts_list.append(qa["contexts"])
+
+        if isinstance(reference, str) and reference.strip():
+            ground_truths_list.append([reference])
+            references_list.append(reference)
+        else:
+            ground_truths_list.append([])
+            references_list.append("")
+
+    dataset = Dataset.from_dict(
+        {
+            "question": questions,
+            "answer": answers,
+            "contexts": contexts_list,
+            "reference": references_list,
+            "ground_truths": ground_truths_list,
+        }
     )
 
-    async def runner():
-        results = []
-        for row in data:
-            out = await process_row(row, evaluator_llm)
-            results.append(out)
+    # Let Ragas use its default LLM (configured via OPENAI_API_KEY)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    result = evaluate(dataset, llm=llm)
+    result_df = result.to_pandas()
+    result_df.to_csv("ragas_results.csv", index=False)
 
-        # Save results to CSV
-        out_df = pd.DataFrame(results)
-        out_df.to_csv("ragas_results.csv", index=False)
-        print("\n✔ Evaluation complete. Saved to ragas_results.csv\n")
-
-    asyncio.run(runner())
+    print("✔ Evaluation complete. Saved to ragas_results.csv")
+    print("Final RAGAS scores:")
+    print(result)
 
 
 if __name__ == "__main__":

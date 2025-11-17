@@ -2,12 +2,12 @@
 import os
 import time
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq, BadRequestError
 from retrieval import retrieve, build_context
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("LAWAI_GEMINI_KEY"))
+client = Groq()
 
 def ask(query, return_chunks=False, max_retries=5):
     # 1) Retrieve relevant chunks
@@ -29,26 +29,41 @@ Answer in clear, concise language. Cite Article numbers if relevant.
 """
 
     # ------------------------------------------------------
-    # 3) Retry logic for Gemini
+    # 3) Retry logic for Groq
     # ------------------------------------------------------
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a legal assistant. Answer using only the provided context.",
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
             )
-            answer = response.text.strip()
+            answer = completion.choices[0].message.content.strip()
             break  # success → exit retry loop
 
+        except BadRequestError as e:
+            # Permanent configuration error (e.g. model_decommissioned) – don't retry
+            print(f"[Groq Error] Permanent error: {e}")
+            answer = "The model configuration is invalid or deprecated. Please contact the system administrator."
+            break
+
         except Exception as e:
-            print(f"[Gemini Error] Attempt {attempt}/{max_retries}: {e}")
+            print(f"[Groq Error] Attempt {attempt}/{max_retries}: {e}")
 
             if attempt == max_retries:
-                print("❌ Gemini failed after max retries. Returning fallback answer.")
+                print("❌ Groq failed after max retries. Returning fallback answer.")
                 answer = "The model is currently unavailable. Please try again later."
                 break
 
-            # Exponential backoff
+            # Exponential backoff for transient errors
             sleep_time = 2 ** attempt
             print(f"Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
